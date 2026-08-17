@@ -17,7 +17,7 @@
 #include <arpa/inet.h>
 #include <linux/limits.h>
 #define PORT "3490"
-#define SERVER_HOST "127.0.0.1"
+#define SERVER_HOST "192.168.0.22"
 #define MAXDATASIZE 1024
 
 struct client_connection {
@@ -30,7 +30,7 @@ struct client_connection {
 
 void connect_to_server(struct client_connection *con);
 int get_user_request();
-void get_image_from_server(struct client_connection *con, char *file_name, char *search_name);
+void get_image_from_server(struct client_connection *con);
 void print_client_details(struct addrinfo *p, struct addrinfo *servinfo, char *s, int size_s);
 
 

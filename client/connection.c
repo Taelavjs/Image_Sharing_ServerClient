@@ -39,17 +39,21 @@ void connect_to_server(struct client_connection *con)
     }
 }
 
-int get_user_request() {
+int get_user_request(void)
+{
     int myNum;
-    printf("Type 0 for image, 1 to quit");
-    scanf("%d", &myNum);
+    printf("Type 0 for image, 1 to quit: ");
+    if (scanf("%d", &myNum) != 1) {
+        while (getchar() != '\n');
+        return -1;
+    }
+
     return myNum;
 }
 
-void get_image_from_server(struct client_connection *con, char *file_name, char *search_name) {
+void get_image_from_server(struct client_connection *con) {
     char *msg = "0";
-
-    int size_sent = strlen(msg) + 1;
+    uint32_t size_sent = strlen(msg) + 1;
 
     // Send size
     if (send(con->sockfd, &size_sent, sizeof(size_sent), 0) < 0) {
@@ -64,17 +68,54 @@ void get_image_from_server(struct client_connection *con, char *file_name, char 
         perror("send");
         exit(1);
     }
+
+    // Get list of files
+    int count;
+    recv(con->sockfd, &count, sizeof(count), 0);
+    printf("Count: %d\n", count);
+    for (int i = 0; i < count; i++) {
+        int len;
+        recv(con->sockfd, &len, sizeof(len), 0);
+        printf("Incoming filename length: %d\n", len);
+        char *name = malloc(len);
+        if (!name) {
+            perror("malloc");
+            free(name);
+            exit(1);
+        }
+        int total = 0;
+        while (total < len) {
+            int r = recv(con->sockfd,name + total,len - total,0);
+            if (r <= 0) {
+                perror("recv");
+                free(name);
+                exit(1);
+            }
+            total += r;
+        }
+        printf("File: %s\n", name);
+        free(name);
+    }
+
+    //Read user input for what file from server is wanted
+    char *file_name = malloc(PATH_MAX * sizeof(char));
+    char *search_name = malloc(PATH_MAX * sizeof(char));
+    printf("Please state a file you want to copy over \n");
+    scanf("%4095s", search_name);
+    printf("Please state a file name for incoming picture \n");
+    scanf("%4095s", file_name);
+
+
     send_all(con->sockfd, search_name, strlen(search_name) + 1);
+    free(search_name);
+
     int i;
     recv(con->sockfd, &i, sizeof i, 0);
     if (!i) {
-        // Image not found
         printf("Image not found");
+        free(file_name);
         return;
     }
-    int size;
-
-    printf("Image size: %d\n", size);
     FILE *image = fopen(file_name, "wb");
     img_recv_all(con->sockfd, 1024, image);
     fclose(image);
@@ -82,6 +123,8 @@ void get_image_from_server(struct client_connection *con, char *file_name, char 
     char resolved[PATH_MAX];
     realpath(file_name, resolved);
     printf("Full path: %s\n", resolved);
+
+    free(file_name);
 }
 
 void print_client_details(struct addrinfo *p, struct addrinfo *servinfo, char *s, int size_s) {

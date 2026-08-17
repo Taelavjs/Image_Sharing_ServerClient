@@ -31,5 +31,6 @@ void start_listening(int *socket_fd ) ;
 void waiting_for_client(socklen_t *sin_size, int *sockfd, struct sockaddr_storage *connectors_ai, int *new_fd, char *s, size_t s_len);
 int client_request_handler(int *new_fd);
 void send_image(int *new_fd, FILE *picture);
+void send_list_of_available_files(int fd, char **files, int file_count);
 
 #endif //DBCHATSERVER_CONNECTION_H

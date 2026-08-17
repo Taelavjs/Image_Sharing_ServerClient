@@ -11,7 +11,7 @@ void start_server(int *socket_fd, struct addrinfo *p) {
     int rv;
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;
+    hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
@@ -69,13 +69,17 @@ int client_request_handler(int *new_fd) {
     char buffer[BUFFER_SIZE];
     int incoming_size;
 
-    int n = recv(*new_fd, &incoming_size, sizeof(incoming_size), 0);
+    int n = recv_all(*new_fd, &incoming_size, sizeof(incoming_size));
 
+    if (incoming_size <= 0 || incoming_size >= BUFFER_SIZE) {
+        fprintf(stderr, "Invalid incoming size: %d\n", incoming_size);
+        return -1;
+    }
     if (n <= 0) {
         perror("recv size failed");
         return -1;
     }
-    int bytes_received = recv(*new_fd, buffer, incoming_size, 0);
+    int bytes_received = recv_all(*new_fd, buffer, incoming_size);
 
     if (bytes_received != incoming_size) {
         perror("recv data failed");
@@ -101,7 +105,17 @@ void send_image(int *new_fd, FILE *picture) {
     int size;
     fseek(picture, 0, SEEK_END);
     size = ftell(picture);
-    write(*new_fd, &size, sizeof(size));
     fseek(picture, 0, SEEK_SET);
     img_send_all(*new_fd, BUFFER_SIZE, picture, size);
+}
+
+// Send list of available files to client
+void send_list_of_available_files(int fd, char **files, int file_count) {
+    int size_int = sizeof(file_count);
+    send(fd, &file_count, sizeof(file_count), 0);
+    for (int i = 0; i < file_count; i++) {
+        int len = strlen(files[i]) + 1;
+        send(fd, &len, sizeof(len), 0);
+        send(fd, files[i], len, 0);
+    }
 }

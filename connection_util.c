@@ -15,9 +15,9 @@ void *get_in_addr(struct sockaddr *sa)
 void img_send_all(int sock_fd, int buffer_size, FILE *file, int size) {
     char send_buffer[buffer_size];
     int nb;
-    write(sock_fd, send_buffer, size);
+    send(sock_fd, &size, sizeof size, 0);
     while ((nb = fread(send_buffer, 1, buffer_size, file)) > 0) {
-        write(sock_fd, send_buffer, nb);
+        send(sock_fd, send_buffer, nb, 0);
     }
 }
 
@@ -41,44 +41,71 @@ int img_recv_all(int sock_fd, int max_buff_size, FILE *file) {
     return 1;
 }
 
-int send_all(int sock_fd, const void *data, size_t size) {
-    uint32_t len = (uint32_t)size;
+int send_exact(int sock_fd, const void *buffer, size_t size)
+{
+    size_t total = 0;
+    const char *ptr = buffer;
 
-    if (send(sock_fd, &len, sizeof(len), 0) != sizeof(len)) {
-        return -1;
-    }
-    const char *ptr = (const char *)data;
-    size_t total_sent = 0;
-    while (total_sent < size) {
-        ssize_t sent = send(sock_fd, ptr + total_sent, size - total_sent, 0);
-        if (sent <= 0) {
+    while (total < size) {
+        ssize_t sent = send(sock_fd,
+                            ptr + total,
+                            size - total,
+                            0);
+
+        if (sent <= 0)
             return -1;
-        }
-        total_sent += (size_t)sent;
+
+        total += sent;
+    }
+
+    return 0;
+}
+
+int send_all(int sock_fd, const void *buffer, size_t buffer_size)
+{
+    uint32_t len = (uint32_t)buffer_size;
+
+    if (send_exact(sock_fd, &len, sizeof(len)) < 0)
+        return -1;
+
+    if (send_exact(sock_fd, buffer, buffer_size) < 0)
+        return -1;
+
+    return (int)buffer_size;
+}
+
+int recv_exact(int sock_fd, void *buffer, size_t size)
+{
+    size_t total = 0;
+    char *ptr = buffer;
+
+    while (total < size) {
+        ssize_t n = recv(sock_fd,ptr + total,size - total,0);
+        if (n <= 0) return -1;
+        total += n;
     }
     return 0;
 }
 
-int recv_all(int sock_fd, void *buffer, size_t max_buffer_size) {
+int recv_all(int sock_fd, void *buffer, size_t max_buffer_size)
+{
     uint32_t len = 0;
-    ssize_t r = recv(sock_fd, &len, sizeof(len), 0);
-    if (r <= 0) {
+    if (recv_exact(sock_fd, &len, sizeof(len)) < 0)
         return -1;
-    }
-    if (len > max_buffer_size) {
+
+    if (len > max_buffer_size)
         return -1;
-    }
+
     size_t total_received = 0;
-    char *ptr = (char *)buffer;
+    char *ptr = buffer;
 
     while (total_received < len) {
         ssize_t received = recv(sock_fd,ptr + total_received,len - total_received,0);
+        if (received <= 0) return -1;
 
-        if (received <= 0) {
-            return -1;
-        }
-        total_received += (size_t)received;
+        total_received += received;
     }
+
     return (int)len;
 }
 

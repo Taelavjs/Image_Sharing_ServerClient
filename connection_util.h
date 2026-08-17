@@ -12,5 +12,5 @@ void img_send_all(int sock_fd, int buffer_size, FILE *file, int size);
 int img_recv_all(int sock_fd, int max_buff_size, FILE *file);
 int send_all(int sock_fd, const void *data, size_t size);
 int recv_all(int sock_fd, void *buffer, size_t size);
-
+int recv_exact(int sock_fd, void *buffer, size_t size);
 #endif
